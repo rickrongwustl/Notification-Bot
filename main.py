@@ -2,6 +2,14 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import os
+import datetime # Add this at the top
+
+def save_history(history):
+    # Add a timestamp so the file content CHANGES every single time
+    history["_last_checked"] = str(datetime.datetime.now())
+    
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=4)
 
 # --- CONFIGURATION ---
 URLS = [
