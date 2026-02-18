@@ -15,10 +15,12 @@ URLS = [
     "https://www.predatorcues.com/usa/pool-cues/lines/p3-pool-cues.html",
 ]
 
-# Mezz Power Break G (PBG) product handles (from the uploaded collection HTML)
-MEZZ_PRODUCT_HANDLES = [
-    "power-break-g",
-    "power-break-g-no-wrap",
+# Mezz Collection URLs to monitor
+MEZZ_URLS = [
+    "https://mezzusa.com/collections/ace-218-series",
+    "https://mezzusa.com/collections/new-ace-series",
+    "https://mezzusa.com/collections/axi-series",
+    "https://mezzusa.com/collections/power-break-g",
 ]
 
 TOPIC_NAME = "bkrush_ric"
@@ -112,32 +114,34 @@ def check_predator_page(url: str, soup: BeautifulSoup, stock_history: dict):
 
         stock_history[key] = curr
 
-def check_mezz_pbg(stock_history: dict, headers: dict):
-    for handle in MEZZ_PRODUCT_HANDLES:
-        js_url = f"https://mezzusa.com/products/{handle}.js"
-        try:
-            r = requests.get(js_url, headers=headers, timeout=20)
-            r.raise_for_status()
-            data = r.json()
+def check_mezz_page(url: str, soup: BeautifulSoup, stock_history: dict):
+    products = soup.select(".ProductItem")
 
-            title = data.get("title", handle)
-            product_url = f"https://mezzusa.com/products/{handle}"
+    for product in products:
+        name_el = product.select_one(".ProductItem__Title a")
+        if not name_el:
+            continue
 
-            variants = data.get("variants", []) or []
-            is_in_stock = any(bool(v.get("available")) for v in variants)
+        name = name_el.text.strip()
+        link = name_el.get("href", url)
+        if link.startswith("/"):
+            link = f"https://mezzusa.com{link}"
 
-            key = f"mezz::{handle}"
-            prev = stock_history.get(key, "Unknown")
-            curr = "In Stock" if is_in_stock else "Out of Stock"
+        # Parse stock status from the label list
+        sold_out_el = product.select_one(".ProductItem__LabelList .ProductItem__Label")
+        if sold_out_el and "Sold out" in sold_out_el.text:
+            curr = "Out of Stock"
+        else:
+            curr = "In Stock"
 
-            # ALERT ONLY ON OUT -> IN
-            if curr == "In Stock" and prev != "In Stock":
-                send_push_alert(f"Mezz PBG: {title}", product_url, title_override="Mezz PBG In Stock")
+        key = f"mezz::{name}"
+        prev = stock_history.get(key, "Unknown")
 
-            stock_history[key] = curr
+        # ALERT ONLY ON OUT -> IN
+        if curr == "In Stock" and prev != "In Stock":
+            send_push_alert(name, link, title_override="Mezz In Stock Alert")
 
-        except Exception as e:
-            print(f"Error scanning Mezz {handle}: {e}")
+        stock_history[key] = curr
 
 def check_stock():
     stock_history = load_history()
@@ -157,8 +161,14 @@ def check_stock():
         except Exception as e:
             print(f"Error scanning {url}: {e}")
 
-    # Mezz scans (ONLY Power Break G)
-    check_mezz_pbg(stock_history, headers)
+    # Mezz scans (ONLY specified collections)
+    for url in MEZZ_URLS:
+        try:
+            response = requests.get(url, headers=headers, timeout=20)
+            soup = BeautifulSoup(response.content, "html.parser")
+            check_mezz_page(url, soup, stock_history)
+        except Exception as e:
+            print(f"Error scanning {url}: {e}")
 
     save_history(stock_history)
     run_git_push()
