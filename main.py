@@ -7,7 +7,6 @@ import time
 import subprocess
 
 # --- CONFIGURATION (ONLY WHAT YOU WANT) ---
-# --- Mezz USA commit ---
 URLS = [
     # Predator BK Rush page
     "https://www.predatorcues.com/usa/pool-cues/break-jump-cues/bk-rush-break-cues.html",
