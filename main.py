@@ -84,11 +84,12 @@ def check_stock():
                 status_text = stock_el.text.strip() if stock_el else "Unknown"
                 
                 # --- LOGIC ---
+                # --- LOGIC ---
                 if "new-arrivals" in url:
                     if "LE True Splice 16" in name:
                         if name not in stock_history:
-                            print(f"  !!! SPECIAL FIND: {name}")
-                            send_push_alert(name, link, title_override="NEW LISTING DETECTED")
+                            print(f"  (logged TS16 listing, no alert): {name}")
+                            stock_history[name] = "Detected"
                 else:
                     if "BK Rush" in name and "Black" in name:
                         stock_history[name] = status_text
@@ -102,6 +103,7 @@ def check_stock():
                         send_push_alert(name, link, title_override="In Stock Alert")
                     
                     stock_history[name] = "In Stock" if is_in_stock else "Out of Stock"
+
                     
         except Exception as e:
             print(f"Error scanning {url}: {e}")
